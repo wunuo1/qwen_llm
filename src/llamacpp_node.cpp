@@ -17,6 +17,9 @@
 #include <unistd.h>
 #include <vector>
 #include <random>
+#include <fcntl.h>
+#include <poll.h>
+#include <iostream>
 
 #include "rclcpp/rclcpp.hpp"
 #include "cv_bridge/cv_bridge.h"
@@ -261,6 +264,37 @@ int LlamaCppNode::GetTextIndex(
       std::vector<int>& indexs,
       std::vector<std::string>& target_texts) {
   return 0;
+}
+
+
+static bool wait_for_rising_edge(int timeout_ms = -1) {
+    std::string gpio_path = "/sys/class/gpio/gpio401/value";
+    int fd = open(gpio_path.c_str(), O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        return false;
+    }
+
+    struct pollfd pfd;
+    pfd.fd = fd;
+    pfd.events = POLLPRI | POLLERR;
+
+    // 先读一次清除状态
+    char buf;
+    read(fd, &buf, 1);
+
+    int ret = poll(&pfd, 1, timeout_ms);
+    if (ret > 0) {
+        // 上升沿触发
+        lseek(fd, 0, SEEK_SET);
+        read(fd, &buf, 1);
+        close(fd);
+        return true;
+    } else {
+        // 超时或出错
+        close(fd);
+        return false;
+    }
 }
 
 int LlamaCppNode::PostProcess(
@@ -951,6 +985,14 @@ int LlamaCppNode::Chat() {
   std::vector<std::string> his_strings;
   bool is_repeat = false;
   bool init_status = false;
+
+  // static bool start_run = false;
+  // if (start_run == false) {
+  //   start_run = wait_for_rising_edge(-1);
+  //   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  //   std::cout << "Rising edge detected!" << std::endl;
+  // }
+
   while (rclcpp::ok() && running_ && ((n_remain != 0 && !is_antiprompt) || params.interactive)) {
       // predict
       if (!embd.empty()) {
@@ -1221,6 +1263,7 @@ int LlamaCppNode::Chat() {
                   }
                   is_interacting = true;
                   LOG("\n");
+                  // std::cout<<"end-----------------"<<std::endl;
               }
           }
 
@@ -1235,6 +1278,15 @@ int LlamaCppNode::Chat() {
 
               if (params.conversation_mode) {
                   LOG("\n> ");
+                  if (init_status == true){
+                    for(int i = 0; i < 2; i++){
+                      std_msgs::msg::String::UniquePtr pub_string(
+                          new std_msgs::msg::String());  
+                      pub_string->data = "end";
+                      output_msg_publisher_->publish(std::move(pub_string));
+                    }   
+                  }
+
               }
 
               if (params.input_prefix_bos) {
@@ -1244,8 +1296,14 @@ int LlamaCppNode::Chat() {
               if (init_status == false) {
                 std_msgs::msg::String::UniquePtr pub_string(
                   new std_msgs::msg::String());  
-                pub_string->data = cute_words_;
-                output_msg_publisher_->publish(std::move(pub_string));
+                // pub_string->data = cute_words_;
+                // output_msg_publisher_->publish(std::move(pub_string));  
+                // for(int i = 0; i < 2; i++){
+                //   std_msgs::msg::String::UniquePtr pub_end(
+                //     new std_msgs::msg::String());
+                //   pub_end->data = "end";
+                //   output_msg_publisher_->publish(std::move(pub_end));
+                // }
                 init_status = true;
               }
               {

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "include/cli.h"
-
+#include <cctype>
 bool CLI::internvl2_eval_image_embed(llama_context * ctx_llama, const struct llava_image_embed * image_embed,
                                    int n_batch, int * n_past, int * st_pos_id) {
   int n_embd  = llama_model_n_embd(llama_get_model(ctx_llama));
@@ -144,7 +144,15 @@ void CLI::process_system_prompt(struct llava_context * ctx_llava, common_params 
 }
 
 // 判断一个字符是否是中文（UTF-8 三字节范围）
-bool isChinese(const std::string& str, size_t i) {
+bool isChineseOrDigit(const std::string& str, size_t i) {
+
+  unsigned char c = str[i];
+  if (c < 0x80) {
+      if (std::isdigit(c)) return true;
+      if (c == '.') return true;
+      return false;
+  }
+
   if (i + 2 >= str.size()) return false;
 
   unsigned char c1 = str[i];
@@ -169,7 +177,7 @@ std::string filterChineseAndPunctuation(const std::string& input, bool& hasChine
   hasPunctuation = false;
 
   for (size_t i = 0; i < input.size(); ) {
-      if (isChinese(input, i)) {
+      if (isChineseOrDigit(input, i)) {
           hasChinese = true;
           result += input.substr(i, 3);
           i += 3;
@@ -182,6 +190,9 @@ std::string filterChineseAndPunctuation(const std::string& input, bool& hasChine
           // 英文字符/符号等：跳过
           unsigned char c = input[i];
           if (c < 0x80) {
+              if (std::isdigit(c)) {
+                  result += c;
+              }
               ++i;
           } else if ((c & 0xE0) == 0xC0) {
               i += 2; // 2-byte UTF-8

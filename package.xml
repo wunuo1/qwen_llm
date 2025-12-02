@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>hobot_llamacpp</name>
+  <name>my_hobot_llamacpp</name>
   <version>0.2.3</version>
   <description>TogetheROS hobot llamacpp</description>
   <maintainer email="zixi01.chen@d-robotics.cc">zixi01.chen</maintainer>
