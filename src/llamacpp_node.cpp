@@ -1296,14 +1296,14 @@ int LlamaCppNode::Chat() {
               if (init_status == false) {
                 std_msgs::msg::String::UniquePtr pub_string(
                   new std_msgs::msg::String());  
-                // pub_string->data = cute_words_;
-                // output_msg_publisher_->publish(std::move(pub_string));  
-                // for(int i = 0; i < 2; i++){
-                //   std_msgs::msg::String::UniquePtr pub_end(
-                //     new std_msgs::msg::String());
-                //   pub_end->data = "end";
-                //   output_msg_publisher_->publish(std::move(pub_end));
-                // }
+                pub_string->data = cute_words_;
+                output_msg_publisher_->publish(std::move(pub_string));  
+                for(int i = 0; i < 2; i++){
+                  std_msgs::msg::String::UniquePtr pub_end(
+                    new std_msgs::msg::String());
+                  pub_end->data = "end";
+                  output_msg_publisher_->publish(std::move(pub_end));
+                }
                 init_status = true;
               }
               {
