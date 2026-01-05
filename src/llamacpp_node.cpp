@@ -703,7 +703,7 @@ int LlamaCppNode::Chat() {
   params.model = llm_model_name_;
   params.cpuparams.n_threads = llm_threads_;
   params.sampling.temp = 0.5;
-  params.n_predict = 128;
+  params.n_predict = 256;
   std::string value = system_prompt_;
   std::ifstream file(value);
   if (!file) {
@@ -1113,9 +1113,7 @@ int LlamaCppNode::Chat() {
       }
 
       embd.clear();
-
       if ((int) embd_inp.size() <= n_consumed && !is_interacting) {
-
           // optionally save the session on first sample (for faster prompt loading next time)
           if (!path_session.empty() && need_to_save_session && !params.prompt_cache_ro) {
               need_to_save_session = false;
@@ -1163,10 +1161,9 @@ int LlamaCppNode::Chat() {
               LOG("%s", token_str.c_str());
               // Console/Stream Output
 
-              bool hasChinese = false;
+              bool hasChineseOrDigit = false;
               bool hasPunctuation = false;
-              std::string filtered = filterChineseAndPunctuation(token_str, hasChinese, hasPunctuation);
-
+              std::string filtered = filterChineseAndPunctuation(token_str, hasChineseOrDigit, hasPunctuation);
               sub_string += filtered;
               if (hasPunctuation) {
                 for (int j = 0; j < his_strings.size(); j++) {
@@ -1181,6 +1178,7 @@ int LlamaCppNode::Chat() {
                 std_msgs::msg::String::UniquePtr pub_string(
                     new std_msgs::msg::String());  
                 pub_string->data = sub_string;
+                // std::cout<<"sub_string: "<<sub_string<<std::endl;
                 output_msg_publisher_->publish(std::move(pub_string));
                 sub_string = "";
               }
@@ -1195,6 +1193,7 @@ int LlamaCppNode::Chat() {
                   output_ss << token_str;
               }
           }
+
       }
 
       // reset color to default if there is no pending user input
@@ -1272,19 +1271,31 @@ int LlamaCppNode::Chat() {
               const auto id = common_sampler_last(smpl);
               assistant_ss << common_token_to_piece(ctx, id, false);
           }
-
           if (n_past > 0 && is_interacting) {
               LOG_DBG("waiting for user input\n");
-
+              
               if (params.conversation_mode) {
                   LOG("\n> ");
                   if (init_status == true){
+
+                    //处理最后一句没有标点符号的情况
+                    if (sub_string != ""){
+                      his_strings.push_back(sub_string);
+                      std_msgs::msg::String::UniquePtr pub_string(
+                          new std_msgs::msg::String());  
+                      pub_string->data = sub_string;
+                      // std::cout<<"sub_string: "<<sub_string<<std::endl;
+                      output_msg_publisher_->publish(std::move(pub_string));
+                      sub_string = "";
+                    }
+                    
                     for(int i = 0; i < 2; i++){
                       std_msgs::msg::String::UniquePtr pub_string(
                           new std_msgs::msg::String());  
                       pub_string->data = "end";
                       output_msg_publisher_->publish(std::move(pub_string));
                     }   
+                    n_remain = params.n_predict;
                   }
 
               }
@@ -1397,6 +1408,7 @@ int LlamaCppNode::Chat() {
 
       // In interactive mode, respect the maximum number of tokens and drop back to user input when reached.
       // We skip this logic when n_predict == -1 (infinite) or -2 (stop at context size).
+      // std::cout<<"n_remain: "<<n_remain<<std::endl;
       if (params.interactive && n_remain <= 0 && params.n_predict >= 0) {
           n_remain = params.n_predict;
           is_interacting = true;

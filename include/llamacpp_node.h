@@ -40,8 +40,8 @@
 #include "include/cli.h"
 #include "include/post_process/llama_cpp_parser.h"
 
-#ifndef YOLO_WORLD_NODE_H_
-#define YOLO_WORLD_NODE_H_
+#ifndef LLAMA_CPP_NODE_H_
+#define LLAMA_CPP_NODE_H_
 
 using rclcpp::NodeOptions;
 
@@ -163,4 +163,4 @@ class LlamaCppNode : public DnnNode {
       nullptr;
 };
 
-#endif  // YOLO_WORLD_NODE_H_
+#endif  // LLAMA_CPP_NODE_H_

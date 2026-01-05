@@ -171,42 +171,75 @@ bool isChinesePunctuation(const std::string& str, size_t i) {
           (str[i + 2] == char(0x81) || str[i + 2] == char(0x82)));
 }
 
-std::string filterChineseAndPunctuation(const std::string& input, bool& hasChinese, bool& hasPunctuation) {
+std::string filterChineseAndPunctuation(const std::string& input, bool& hasChineseOrDigit, bool& hasPunctuation) {
   std::string result;
-  hasChinese = false;
+  static std::string last_result = "";
+  hasChineseOrDigit = false;
   hasPunctuation = false;
-
+  if (last_result != ""){
+    result = result + last_result;
+    last_result = "";
+  }
   for (size_t i = 0; i < input.size(); ) {
-      if (isChineseOrDigit(input, i)) {
-          hasChinese = true;
-          result += input.substr(i, 3);
-          i += 3;
-      } else {
-        hasPunctuation = true;
-        if (isChinesePunctuation(input, i)) {
-          result += input.substr(i, 3);
-          i += 3;
+      //判断标点符号在文字前还是文字后，若在文字前，则将文字并到下一次输出
+      if (hasPunctuation == true){
+        if (isChineseOrDigit(input, i)) {
+            last_result += input.substr(i, 3);
+            i += 3;
         } else {
-          // 英文字符/符号等：跳过
-          unsigned char c = input[i];
-          if (c < 0x80) {
-              if (std::isdigit(c)) {
-                  result += c;
-              }
-              ++i;
-          } else if ((c & 0xE0) == 0xC0) {
-              i += 2; // 2-byte UTF-8
-          } else if ((c & 0xF0) == 0xE0) {
-              i += 3; // 3-byte UTF-8
-          } else if ((c & 0xF8) == 0xF0) {
-              i += 4; // 4-byte UTF-8
+          if (isChinesePunctuation(input, i)) {
+            last_result += input.substr(i, 3);
+            i += 3;
           } else {
-              ++i;
+            // 英文字符：跳过
+            unsigned char c = input[i];
+            if (c < 0x80) {
+                if (std::isdigit(c)) {
+                    last_result += c;
+                }
+                ++i;
+            } else if ((c & 0xE0) == 0xC0) {
+                i += 2; // 2-byte UTF-8
+            } else if ((c & 0xF0) == 0xE0) {
+                i += 3; // 3-byte UTF-8
+            } else if ((c & 0xF8) == 0xF0) {
+                i += 4; // 4-byte UTF-8
+            } else {
+                ++i;
+            }
+          }
+        }
+      } else{
+        if (isChineseOrDigit(input, i)) {
+            hasChineseOrDigit = true;
+            result += input.substr(i, 3);
+            i += 3;
+        } else {
+          hasPunctuation = true;
+          if (isChinesePunctuation(input, i)) {
+            result += input.substr(i, 3);
+            i += 3;
+          } else {
+            // 英文字符：跳过
+            unsigned char c = input[i];
+            if (c < 0x80) {
+                if (std::isdigit(c)) {
+                    result += c;
+                }
+                ++i;
+            } else if ((c & 0xE0) == 0xC0) {
+                i += 2; // 2-byte UTF-8
+            } else if ((c & 0xF0) == 0xE0) {
+                i += 3; // 3-byte UTF-8
+            } else if ((c & 0xF8) == 0xF0) {
+                i += 4; // 4-byte UTF-8
+            } else {
+                ++i;
+            }
           }
         }
       }
   }
-
   return result;
 }
 
@@ -249,9 +282,9 @@ void CLI::process_prompt(struct llava_context * ctx_llava, struct llava_image_em
       if (strstr(response.c_str(), "<|im_start|>")) break; // Yi-34B llava-1.6
       if (strstr(response.c_str(), "USER:")) break; // mistral llava-1.6
 
-      bool hasChinese = false;
+      bool hasChineseOrDigit = false;
       bool hasPunctuation = false;
-      std::string filtered = filterChineseAndPunctuation(tmp, hasChinese, hasPunctuation);
+      std::string filtered = filterChineseAndPunctuation(tmp, hasChineseOrDigit, hasPunctuation);
   
       sub_string += filtered;
       if (hasPunctuation) {
