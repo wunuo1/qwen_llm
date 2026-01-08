@@ -41,6 +41,7 @@ find_package(ai_msgs REQUIRED)
 find_package(dnn_node REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV 4 REQUIRED)
+find_package(std_srvs REQUIRED)
 
 option(SHARED_MEM "using shared mem" ON)
 if (${SHARED_MEM})
@@ -122,6 +123,7 @@ ament_target_dependencies(
   sensor_msgs
   ai_msgs
   cv_bridge
+  std_srvs
 )
 
 if (${SHARED_MEM})

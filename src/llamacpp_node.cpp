@@ -159,6 +159,8 @@ LlamaCppNode::LlamaCppNode(const std::string &node_name,
   output_msg_publisher_ = this->create_publisher<std_msgs::msg::String>(
     text_msg_pub_topic_name_, 10);
 
+  status_service_ = this->create_client<std_srvs::srv::Trigger>("audio_status");
+
   if (0 == feed_type_) {
     // 本地图片回灌
     RCLCPP_INFO(rclcpp::get_logger("llama_cpp_node"),
@@ -986,13 +988,6 @@ int LlamaCppNode::Chat() {
   bool is_repeat = false;
   bool init_status = false;
 
-  // static bool start_run = false;
-  // if (start_run == false) {
-  //   start_run = wait_for_rising_edge(-1);
-  //   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  //   std::cout << "Rising edge detected!" << std::endl;
-  // }
-
   while (rclcpp::ok() && running_ && ((n_remain != 0 && !is_antiprompt) || params.interactive)) {
       // predict
       if (!embd.empty()) {
@@ -1305,6 +1300,12 @@ int LlamaCppNode::Chat() {
                   embd_inp.push_back(llama_vocab_bos(vocab));
               }
               if (init_status == false) {
+                //等待确认语音节点是否启动
+                if (!status_service_->wait_for_service(std::chrono::seconds(100))) {
+                    RCLCPP_ERROR(this->get_logger(), "Service not available");
+                    return 1;
+                }
+                
                 std_msgs::msg::String::UniquePtr pub_string(
                   new std_msgs::msg::String());  
                 pub_string->data = cute_words_;

@@ -20,6 +20,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 #include "ai_msgs/msg/perception_targets.hpp"
 #include "ai_msgs/msg/perf.hpp"
@@ -161,6 +162,9 @@ class LlamaCppNode : public DnnNode {
   std::string text_msg_pub_topic_name_ = "/tts_text";
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr output_msg_publisher_ =
       nullptr;
+
+  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr status_service_ = nullptr;
+
 };
 
 #endif  // LLAMA_CPP_NODE_H_

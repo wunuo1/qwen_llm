@@ -17,7 +17,7 @@ import os
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python import get_package_share_directory
 
@@ -49,6 +49,9 @@ def generate_launch_description():
 
 
     return LaunchDescription([
+        SetEnvironmentVariable(
+            'RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp'
+        ),
         # audio_node,
         hobot_llamacpp_node
     ])
