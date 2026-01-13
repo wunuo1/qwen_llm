@@ -110,7 +110,18 @@ add_executable(${PROJECT_NAME}
   src/${PREFIX_PATH}/llama_cpp_parser.cpp
 )
 
+add_executable(llama_warmup
+  src/llama_warmup.cpp
+)
+
+
 target_link_libraries(${PROJECT_NAME} 
+    ${CMAKE_CURRENT_SOURCE_DIR}/llama.cpp/build/common/libcommon.a 
+    ggml 
+    llama
+    ${CMAKE_THREAD_LIBS_INIT})
+
+target_link_libraries(llama_warmup 
     ${CMAKE_CURRENT_SOURCE_DIR}/llama.cpp/build/common/libcommon.a 
     ggml 
     llama
@@ -134,6 +145,11 @@ if (${SHARED_MEM})
 endif ()
 
 # Install executables
+install(
+  TARGETS llama_warmup
+  RUNTIME DESTINATION lib/llama_warmup
+)
+
 install(
   TARGETS ${PROJECT_NAME}
   RUNTIME DESTINATION lib/${PROJECT_NAME}

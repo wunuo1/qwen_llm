@@ -979,6 +979,13 @@ int LlamaCppNode::Chat() {
 
       embd_inp.clear();
       embd_inp.push_back(decoder_start_token_id);
+
+      // if (llama_model_has_decoder(model)) {
+      //     llama_decode(ctx, llama_batch_get_one(embd_inp.data(), std::min(embd_inp.size(), (size_t) params.n_batch)));
+      // }
+      // llama_kv_cache_clear(ctx);
+      // llama_synchronize(ctx);
+      // llama_perf_context_reset(ctx);
   }
 
   bool start = true;
@@ -987,6 +994,12 @@ int LlamaCppNode::Chat() {
   std::vector<std::string> his_strings;
   bool is_repeat = false;
   bool init_status = false;
+
+
+
+
+
+
 
   while (rclcpp::ok() && running_ && ((n_remain != 0 && !is_antiprompt) || params.interactive)) {
       // predict
@@ -1056,7 +1069,6 @@ int LlamaCppNode::Chat() {
           //         LOG_DBG("\nn_past_old = %d, n_past = %d, ga_i = %d\n\n", n_past + bd, n_past, ga_i);
           //     }
           // }
-
           // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
           if (n_session_consumed < (int) session_tokens.size()) {
               size_t i = 0;
@@ -1078,7 +1090,6 @@ int LlamaCppNode::Chat() {
                   embd.erase(embd.begin(), embd.begin() + i);
               }
           }
-
           for (int i = 0; i < (int) embd.size(); i += params.n_batch) {
               int n_eval = (int) embd.size() - i;
               if (n_eval > params.n_batch) {
@@ -1086,13 +1097,24 @@ int LlamaCppNode::Chat() {
               }
 
               LOG_DBG("eval: %s\n", string_from(ctx, embd).c_str());
+              // if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval))) {
+              //     LOG_ERR("%s : failed to eval\n", __func__);
+              //     return 1;
+              // }
 
-              if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval))) {
+              // n_past += n_eval;
+              
+              auto batch = llama_batch_get_one(&embd[i], n_eval);
+              // auto start = std::chrono::steady_clock::now();
+              if (llama_decode(ctx, batch)) {
                   LOG_ERR("%s : failed to eval\n", __func__);
                   return 1;
               }
-
               n_past += n_eval;
+              // auto end = std::chrono::steady_clock::now();
+              // auto cost_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+              // std::cout << "耗时: " << cost_ms << std::endl;
+
 
               LOG_DBG("n_past = %d\n", n_past);
               // Display total tokens alongside total time
@@ -1100,13 +1122,11 @@ int LlamaCppNode::Chat() {
                   LOG_DBG("\n\033[31mTokens consumed so far = %d / %d \033[0m\n", n_past, n_ctx);
               }
           }
-
           if (!embd.empty() && !path_session.empty()) {
               session_tokens.insert(session_tokens.end(), embd.begin(), embd.end());
               n_session_consumed = session_tokens.size();
           }
       }
-
       embd.clear();
       if ((int) embd_inp.size() <= n_consumed && !is_interacting) {
           // optionally save the session on first sample (for faster prompt loading next time)
@@ -1196,7 +1216,6 @@ int LlamaCppNode::Chat() {
           console::set_display(console::reset);
           display = true;
       }
-
       // if not currently processing queued inputs;
       if ((int) embd_inp.size() <= n_consumed) {
           // check for reverse prompt in the last n_prev tokens
@@ -1342,7 +1361,7 @@ int LlamaCppNode::Chat() {
                   // append input suffix if any
                   if (!params.input_suffix.empty() && !params.conversation_mode) {
                       LOG_DBG("appending input suffix: '%s'\n", params.input_suffix.c_str());
-                      LOG("%s", params.input_suffix.c_str());
+                      // LOG("%s", params.input_suffix.c_str());
                   }
 
                   LOG_INF("buffer: '%s'\n", buffer.c_str());
@@ -1400,7 +1419,7 @@ int LlamaCppNode::Chat() {
               is_interacting = false;
           }
       }
-
+      
       // end of generation
       if (!embd.empty() && llama_vocab_is_eog(vocab, embd.back()) && !(params.interactive)) {
           LOG(" [end of text]\n");

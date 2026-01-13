@@ -159,6 +159,16 @@ bool isChineseOrDigit(const std::string& str, size_t i) {
   unsigned char c2 = str[i + 1];
   unsigned char c3 = str[i + 2];
 
+  //《》
+  if (c1 == 0xE3 && c2 == 0x80 &&
+      (c3 == 0x8A || c3 == 0x8B)) {
+      return true;
+  }
+  // “”
+  if (c1 == 0xE2 && c2 == 0x80 &&
+      (c3 == 0x9C || c3 == 0x9D)) {
+      return true;
+  }
   // 中文 UTF-8 范围是 E4 B8 80 到 E9 BE A5
   return (c1 >= 0xE4 && c1 <= 0xE9);
 }
@@ -166,9 +176,8 @@ bool isChineseOrDigit(const std::string& str, size_t i) {
 // 判断是否是中文逗号或句号（UTF-8编码：，=E3 80 81，。=E3 80 82）
 bool isChinesePunctuation(const std::string& str, size_t i) {
   if (i + 2 >= str.size()) return false;
-
-  return (str[i] == char(0xE3) && str[i + 1] == char(0x80) &&
-          (str[i + 2] == char(0x81) || str[i + 2] == char(0x82)));
+  return ((str[i] == char(0xE3) && str[i + 1] == char(0x80) &&
+          ((str[i + 2] == char(0x81) || str[i + 2] == char(0x82)) || (str[i + 2] == char(0x8A) || str[i + 2] == char(0x8B))))) ||  (str[i] == 0xE2 && str[i+1] == 0x80 && (str[i+2] == 0x9C || str[i+2] == 0x9D));
 }
 
 std::string filterChineseAndPunctuation(const std::string& input, bool& hasChineseOrDigit, bool& hasPunctuation) {
