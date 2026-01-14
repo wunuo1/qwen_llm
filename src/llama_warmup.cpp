@@ -1,5 +1,9 @@
 #include <fstream>
 #include <vector>
+#include <iostream>
+#include <thread>
+#include <mutex>
+#include <chrono>
 
 #include "base64.hpp"
 #include "common/log.h"
@@ -26,7 +30,24 @@ static void print_usage(int argc, char ** argv) {
   LOG("\n");
 }
 
+std::mutex ctx_mutex;
+
+
+void warmup_func(const std::vector<std::string> &warmup_texts, llama_model *model, llama_context *ctx){
+  for (auto& text : warmup_texts) {
+    llama_token tokens[256];
+    int32_t n_text_chars = static_cast<int32_t>(text.size());
+    int32_t n_tokens = llama_tokenize(&model->vocab, text.c_str(), n_text_chars,
+                                        tokens, 256, true, true);
+
+    llama_batch batch = llama_batch_get_one(tokens, n_tokens);
+    std::lock_guard<std::mutex> lock(ctx_mutex);
+    llama_decode(ctx, batch);
+  }
+}
+
 int main(int argc, char** argv) {
+  auto start = std::chrono::steady_clock::now();
   static common_params* g_params;
   common_params params;
   g_params = &params;
@@ -34,7 +55,7 @@ int main(int argc, char** argv) {
       return 1;
   }
 
-  std::string llm_model_name_ = "/userdata/MagicBox/config/qwen2.5-1.5b-instruct-q5_k_m.gguf";
+  std::string llm_model_name_ = "/dev/shm/qwen2.5-1.5b-instruct-q5_k_m.gguf";
   params.model = llm_model_name_;
   params.cpuparams.n_threads = 8;
   params.sampling.temp = 0.5;
@@ -80,21 +101,46 @@ int main(int argc, char** argv) {
       GGML_ASSERT(!llama_vocab_get_add_eos(vocab));
   }
 
-  for(int i = 0; i < 3; i++){
-    std::vector<std::string> warmup_texts = {
+  std::vector<std::string> warmup_texts = {
       "你好，这是第一段预热文本。",
       "模型预热第二段，用于激活所有 kernel。",
       "最后一段，确保 KV cache 已经填满。"
-    };
+  };
+  auto now = std::chrono::steady_clock::now();
+  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
 
-    for (auto& text : warmup_texts) {
-      llama_token tokens[256];
-      int32_t n_text_chars = static_cast<int32_t>(text.size());
-      int32_t n_tokens = llama_tokenize(&model->vocab, text.c_str(), n_text_chars,
-                                          tokens, 256, true, true);
+  std::cout << "运行时间1: " << elapsed.count() << " ms\n";
 
-      llama_batch batch = llama_batch_get_one(tokens, n_tokens);
-      llama_decode(ctx, batch);
-    }
+  start = std::chrono::steady_clock::now();
+  for (auto& text : warmup_texts) {
+    llama_token tokens[256];
+    int32_t n_text_chars = static_cast<int32_t>(text.size());
+    int32_t n_tokens = llama_tokenize(&model->vocab, text.c_str(), n_text_chars,
+                                        tokens, 256, true, true);
+
+    llama_batch batch = llama_batch_get_one(tokens, n_tokens);
+    std::lock_guard<std::mutex> lock(ctx_mutex);
+    llama_decode(ctx, batch);
   }
+
+  // std::vector<std::thread> threads;
+
+  // for (int i = 0; i < 3; i++){
+  //   threads.emplace_back(warmup_func, warmup_texts, model, ctx);
+  // }
+
+  // for (auto& t : threads) {
+  //     if (t.joinable()) {
+  //         t.join();
+  //     }
+  // }
+
+  now = std::chrono::steady_clock::now();
+  elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+
+  std::cout << "运行时间2: " << elapsed.count() << " ms\n";
+
+  std::cout << "所有预热文本处理完成。" << std::endl;
+  return 0;
+
 }

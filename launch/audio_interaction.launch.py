@@ -40,7 +40,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {"feed_type": 2},
-            {"llm_model_name": "/userdata/MagicBox/config/qwen2.5-1.5b-instruct-q5_k_m.gguf"},
+            {"llm_model_name": "/dev/shm/qwen2.5-1.5b-instruct-q5_k_m.gguf"},
             {"system_prompt": "config/system_prompt.txt"},
             {"cute_words": "你好，请问有什么能够帮助您的？"}
         ],
