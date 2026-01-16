@@ -17,12 +17,18 @@ import os
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
-from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable
+from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python import get_package_share_directory
-
+from launch.substitutions import TextSubstitution, LaunchConfiguration
+from launch.conditions import IfCondition
 
 def generate_launch_description():
+
+    enable_function_call_arg = DeclareLaunchArgument(
+        "enable_function_call", default_value="False"
+    )
+
     audio_node = Node(
         package='audio_io',
         executable='audio_io',
@@ -41,17 +47,28 @@ def generate_launch_description():
         parameters=[
             {"feed_type": 2},
             {"llm_model_name": "/dev/shm/qwen2.5-1.5b-instruct-q5_k_m.gguf"},
-            {"system_prompt": "config/system_prompt.txt"},
-            {"cute_words": "你好，请问有什么能够帮助您的？"}
+            {"system_prompt_file_": "config/system_prompt.txt"},
+            {"cute_words": "你好，请问有什么能够帮助您的？"},
+            {"system_prompt_function_call_file": "config/system_prompt_function_call.txt"},
+            {"enable_function_call": LaunchConfiguration('enable_function_call')},
         ],
         arguments=['--ros-args', '--log-level', 'warn']
     )
 
+    fc_call_node = Node(
+        package='gesture_legs_control',
+        executable='function_call_control',
+        output='screen',
+        arguments=['--ros-args', '--log-level', 'info'],
+        condition=IfCondition(LaunchConfiguration('enable_function_call')),
+    )
 
     return LaunchDescription([
         SetEnvironmentVariable(
             'RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp'
         ),
+        enable_function_call_arg,
         # audio_node,
+        fc_call_node,
         hobot_llamacpp_node
     ])

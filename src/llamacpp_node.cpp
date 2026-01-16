@@ -82,7 +82,7 @@ LlamaCppNode::LlamaCppNode(const std::string &node_name,
   this->declare_parameter<std::string>("model_file_name", model_file_name_);
   this->declare_parameter<std::string>("cute_words", cute_words_);
   this->declare_parameter<std::string>("user_prompt", user_prompt_);
-  this->declare_parameter<std::string>("system_prompt", system_prompt_);
+  this->declare_parameter<std::string>("system_prompt_file_", system_prompt_file_);
   this->declare_parameter<int>("pre_infer", pre_infer_);
   this->declare_parameter<std::string>("ai_msg_pub_topic_name",
                                        ai_msg_pub_topic_name_);
@@ -92,6 +92,9 @@ LlamaCppNode::LlamaCppNode(const std::string &node_name,
                                        ros_img_sub_topic_name_);
   this->declare_parameter<std::string>("ros_string_sub_topic_name",
                                        ros_string_sub_topic_name_);
+  this->declare_parameter<bool>("enable_function_call",
+                                       enable_function_call_);
+  this->declare_parameter<std::string>("system_prompt_function_call_file", system_prompt_function_call_file_);
 
   this->get_parameter<int>("feed_type", feed_type_);
   this->get_parameter<std::string>("image", image_file_);
@@ -101,12 +104,14 @@ LlamaCppNode::LlamaCppNode(const std::string &node_name,
   this->get_parameter<std::string>("model_file_name", model_file_name_);
   this->get_parameter<std::string>("cute_words", cute_words_);
   this->get_parameter<std::string>("user_prompt", user_prompt_);
-  this->get_parameter<std::string>("system_prompt", system_prompt_);
+  this->get_parameter<std::string>("system_prompt_file_", system_prompt_file_);
   this->get_parameter<int>("pre_infer", pre_infer_);
   this->get_parameter<std::string>("ai_msg_pub_topic_name", ai_msg_pub_topic_name_);
   this->get_parameter<std::string>("text_msg_pub_topic_name", text_msg_pub_topic_name_);
   this->get_parameter<std::string>("ros_img_sub_topic_name", ros_img_sub_topic_name_);
   this->get_parameter<std::string>("ros_string_sub_topic_name", ros_string_sub_topic_name_);
+  this->get_parameter<bool>("enable_function_call", enable_function_call_);
+  this->get_parameter<std::string>("system_prompt_function_call_file", system_prompt_function_call_file_);
 
   {
     std::stringstream ss;
@@ -119,12 +124,13 @@ LlamaCppNode::LlamaCppNode(const std::string &node_name,
        << "\n model_file_name: " << model_file_name_
        << "\n cute_words: " << cute_words_
        << "\n user_prompt: " << user_prompt_
-       << "\n system_prompt: " << system_prompt_
+       << "\n system_prompt_file_: " << system_prompt_file_
        << "\n pre_infer: " << pre_infer_
        << "\n ai_msg_pub_topic_name: " << ai_msg_pub_topic_name_
        << "\n text_msg_pub_topic_name: " << text_msg_pub_topic_name_
        << "\n ros_img_sub_topic_name: " << ros_img_sub_topic_name_
-       << "\n ros_string_sub_topic_name: " << ros_string_sub_topic_name_;
+       << "\n ros_string_sub_topic_name: " << ros_string_sub_topic_name_
+       << "\n enable_function_call: " << enable_function_call_;
     RCLCPP_WARN(rclcpp::get_logger("llama_cpp_node"), "%s", ss.str().c_str());
   }
 
@@ -146,7 +152,7 @@ LlamaCppNode::LlamaCppNode(const std::string &node_name,
       }
     }
 
-    parser_ = std::make_shared<LlamaCppParser>(llm_model_name_, system_prompt_, llm_threads_);
+    parser_ = std::make_shared<LlamaCppParser>(llm_model_name_, system_prompt_file_, llm_threads_);
   }
   
   // 创建AI消息的发布者
@@ -160,7 +166,9 @@ LlamaCppNode::LlamaCppNode(const std::string &node_name,
     text_msg_pub_topic_name_, 10);
 
   status_service_ = this->create_client<std_srvs::srv::Trigger>("audio_status");
-
+  if(enable_function_call_ == true){
+    fc_msg_publisher_ = this->create_publisher<std_msgs::msg::String>(fc_msg_pub_topic_name_, 10);
+  }
   if (0 == feed_type_) {
     // 本地图片回灌
     RCLCPP_INFO(rclcpp::get_logger("llama_cpp_node"),
@@ -339,7 +347,7 @@ int LlamaCppNode::PostProcess(
 
   // 2. 模型后处理解析
   std::string result = "";
-  parser_->Init(system_prompt_);
+  parser_->Init(system_prompt_file_);
   parser_->Parse(parser_output->user_prompt, parser_output->output_tensors, result, output_msg_publisher_);
   if (parser_output) {
     std::stringstream ss;
@@ -706,7 +714,7 @@ int LlamaCppNode::Chat() {
   params.cpuparams.n_threads = llm_threads_;
   params.sampling.temp = 0.5;
   params.n_predict = 256;
-  std::string value = system_prompt_;
+  std::string value = system_prompt_file_;
   std::ifstream file(value);
   if (!file) {
       throw std::runtime_error(string_format("error: failed to open file '%s'\n", value.c_str()));
@@ -714,6 +722,16 @@ int LlamaCppNode::Chat() {
   // store the external file name in params
   params.prompt_file = value;
   std::copy(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), back_inserter(params.prompt));
+
+  if(enable_function_call_ == true){
+    std::ifstream file_fc(system_prompt_function_call_file_);
+    if (!file_fc) {
+        throw std::runtime_error(string_format("error: failed to open file '%s'\n", system_prompt_function_call_file_.c_str()));
+    }
+    params.prompt.push_back('\n');
+    std::copy(std::istreambuf_iterator<char>(file_fc), std::istreambuf_iterator<char>(), back_inserter(params.prompt));
+  }
+
   if (!params.prompt.empty() && params.prompt.back() == '\n') {
       params.prompt.pop_back();
   }
@@ -979,13 +997,6 @@ int LlamaCppNode::Chat() {
 
       embd_inp.clear();
       embd_inp.push_back(decoder_start_token_id);
-
-      // if (llama_model_has_decoder(model)) {
-      //     llama_decode(ctx, llama_batch_get_one(embd_inp.data(), std::min(embd_inp.size(), (size_t) params.n_batch)));
-      // }
-      // llama_kv_cache_clear(ctx);
-      // llama_synchronize(ctx);
-      // llama_perf_context_reset(ctx);
   }
 
   bool start = true;
@@ -995,8 +1006,8 @@ int LlamaCppNode::Chat() {
   bool is_repeat = false;
   bool init_status = false;
 
-
-
+  std::string fc_cmd = "";
+  bool fc_cmd_flag = false;
 
 
 
@@ -1097,13 +1108,6 @@ int LlamaCppNode::Chat() {
               }
 
               LOG_DBG("eval: %s\n", string_from(ctx, embd).c_str());
-              // if (llama_decode(ctx, llama_batch_get_one(&embd[i], n_eval))) {
-              //     LOG_ERR("%s : failed to eval\n", __func__);
-              //     return 1;
-              // }
-
-              // n_past += n_eval;
-              
               auto batch = llama_batch_get_one(&embd[i], n_eval);
               // auto start = std::chrono::steady_clock::now();
               if (llama_decode(ctx, batch)) {
@@ -1175,28 +1179,37 @@ int LlamaCppNode::Chat() {
               const std::string token_str = common_token_to_piece(ctx, id, params.special);
               LOG("%s", token_str.c_str());
               // Console/Stream Output
-
+              if(enable_function_call_ == true){
+                if(token_str.find('{') != std::string::npos) {
+                  fc_cmd.clear();
+                  fc_cmd_flag = true;
+                }
+                if(fc_cmd_flag == true) {
+                  fc_cmd += token_str;
+                  if(token_str.find('}') != std::string::npos){
+                    fc_cmd_flag = false;
+                    std_msgs::msg::String::UniquePtr pub_string(new std_msgs::msg::String());  
+                    pub_string->data = fc_cmd;
+                    fc_msg_publisher_->publish(std::move(pub_string));
+                    break;
+                  }
+                  continue;
+                }
+              }
               bool hasChineseOrDigit = false;
               bool hasPunctuation = false;
               std::string filtered = filterChineseAndPunctuation(token_str, hasChineseOrDigit, hasPunctuation);
               sub_string += filtered;
               if (hasPunctuation) {
-                for (int j = 0; j < his_strings.size(); j++) {
-                  // if (sub_string.size() >= 4 && his_strings[j] == sub_string) {
-                  //   is_repeat = true;
-                  //   break;
-                  // }
-                }
                 if (sub_string == "") continue;
-                // if (is_repeat) break;
                 his_strings.push_back(sub_string);
                 std_msgs::msg::String::UniquePtr pub_string(
                     new std_msgs::msg::String());  
                 pub_string->data = sub_string;
-                // std::cout<<"sub_string: "<<sub_string<<std::endl;
                 output_msg_publisher_->publish(std::move(pub_string));
                 sub_string = "";
               }
+            
               // Record Displayed Tokens To Log
               // Note: Generated tokens are created one by one hence this check
               if (embd.size() > 1) {
@@ -1276,7 +1289,6 @@ int LlamaCppNode::Chat() {
                   }
                   is_interacting = true;
                   LOG("\n");
-                  // std::cout<<"end-----------------"<<std::endl;
               }
           }
 

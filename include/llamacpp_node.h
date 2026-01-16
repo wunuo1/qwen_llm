@@ -135,9 +135,10 @@ class LlamaCppNode : public DnnNode {
   int pre_infer_ = 0;
 
   // 提示词
-  std::string cute_words_ = "好的，让我看看先哈";
+  std::string cute_words_ = "你好，请问有什么能够帮助您的？";
   std::string user_prompt_ = "";
-  std::string system_prompt_ = "You are a helpful assistant.";
+  std::string system_prompt_file_ = "";
+  std::string system_prompt_function_call_file_ = "";
   std::mutex mtx_text_;
   std::mutex mtx_prompt_text_;
   std::string user_true_prompt_;
@@ -145,6 +146,7 @@ class LlamaCppNode : public DnnNode {
   std::condition_variable cv_prompt_text_;
   
   bool task_permission_ = true;
+  bool enable_function_call_ = false;
   std::mutex mtx_llm_;
   
   std::thread thread_;
@@ -161,6 +163,11 @@ class LlamaCppNode : public DnnNode {
   // 发布结果 message
   std::string text_msg_pub_topic_name_ = "/tts_text";
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr output_msg_publisher_ =
+      nullptr;
+
+  //发布控制function call的消息
+  std::string fc_msg_pub_topic_name_ = "/fc_text";
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr fc_msg_publisher_ =
       nullptr;
 
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr status_service_ = nullptr;
