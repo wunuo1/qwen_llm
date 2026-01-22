@@ -40,9 +40,9 @@ def generate_launch_description():
         arguments=['--ros-args', '--log-level', 'warn']
     )
 
-    hobot_llamacpp_node = Node(
-        package='my_hobot_llamacpp',
-        executable='my_hobot_llamacpp',
+    qwen_llm_node = Node(
+        package='qwen_llm',
+        executable='qwen_llm',
         output='screen',
         parameters=[
             {"feed_type": 2},
@@ -70,5 +70,5 @@ def generate_launch_description():
         enable_function_call_arg,
         # audio_node,
         fc_call_node,
-        hobot_llamacpp_node
+        qwen_llm_node
     ])

@@ -109,8 +109,6 @@ int main(int argc, char** argv) {
   auto now = std::chrono::steady_clock::now();
   auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
 
-  std::cout << "运行时间1: " << elapsed.count() << " ms\n";
-
   start = std::chrono::steady_clock::now();
   for (auto& text : warmup_texts) {
     llama_token tokens[256];
@@ -123,22 +121,8 @@ int main(int argc, char** argv) {
     llama_decode(ctx, batch);
   }
 
-  // std::vector<std::thread> threads;
-
-  // for (int i = 0; i < 3; i++){
-  //   threads.emplace_back(warmup_func, warmup_texts, model, ctx);
-  // }
-
-  // for (auto& t : threads) {
-  //     if (t.joinable()) {
-  //         t.join();
-  //     }
-  // }
-
   now = std::chrono::steady_clock::now();
   elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
-
-  std::cout << "运行时间2: " << elapsed.count() << " ms\n";
 
   std::cout << "所有预热文本处理完成。" << std::endl;
   return 0;

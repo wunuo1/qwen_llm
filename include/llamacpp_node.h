@@ -117,14 +117,14 @@ class LlamaCppNode : public DnnNode {
   // 用于解析的配置文件，以及解析后的数据
   std::string model_file_name_ = "vit_model_int16_v2.bin";
   std::string model_name_ = "";
-  std::string llm_model_name_ = "Qwen2.5-0.5B-Instruct-Q4_0.gguf";
+  std::string llm_model_name_ = "Qwen2.5-1.5B-Instruct-Q4_0.gguf";
 
   // 加载模型后，查询出模型输入分辨率
   int model_input_width_ = 448;
   int model_input_height_ = 448;
 
   // 用于预测的图片来源，0：本地图片；1：订阅到的image msg；2：llamacpp推理
-  int feed_type_ = 0;
+  int feed_type_ = 2;
 
   // 使用shared mem通信方式订阅图片
   int is_shared_mem_sub_ = 0;

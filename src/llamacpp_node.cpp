@@ -1055,32 +1055,6 @@ int LlamaCppNode::Chat() {
                   path_session.clear();
               }
           } 
-          // else {
-          //     // std::cout << "111 ga_n != 1 " << std::endl;
-
-          //     // context extension via Self-Extend
-          //     while (n_past >= ga_i + ga_w) {
-          //         const int ib = (ga_n*ga_i)/ga_w;
-          //         const int bd = (ga_w/ga_n)*(ga_n - 1);
-          //         const int dd = (ga_w/ga_n) - ib*bd - ga_w;
-
-          //         LOG_DBG("\n");
-          //         LOG_DBG("shift: [%6d, %6d] + %6d -> [%6d, %6d]\n", ga_i, n_past, ib*bd, ga_i + ib*bd, n_past + ib*bd);
-          //         LOG_DBG("div:   [%6d, %6d] / %6d -> [%6d, %6d]\n", ga_i + ib*bd, ga_i + ib*bd + ga_w, ga_n, (ga_i + ib*bd)/ga_n, (ga_i + ib*bd + ga_w)/ga_n);
-          //         LOG_DBG("shift: [%6d, %6d] + %6d -> [%6d, %6d]\n", ga_i + ib*bd + ga_w, n_past + ib*bd, dd, ga_i + ib*bd + ga_w + dd, n_past + ib*bd + dd);
-
-          //         llama_kv_cache_seq_add(ctx, 0, ga_i,                n_past,              ib*bd);
-          //         llama_kv_cache_seq_div(ctx, 0, ga_i + ib*bd,        ga_i + ib*bd + ga_w, ga_n);
-          //         llama_kv_cache_seq_add(ctx, 0, ga_i + ib*bd + ga_w, n_past + ib*bd,      dd);
-
-          //         n_past -= bd;
-
-          //         ga_i += ga_w/ga_n;
-
-          //         LOG_DBG("\nn_past_old = %d, n_past = %d, ga_i = %d\n\n", n_past + bd, n_past, ga_i);
-          //     }
-          // }
-          // try to reuse a matching prefix from the loaded session instead of re-eval (via n_past)
           if (n_session_consumed < (int) session_tokens.size()) {
               size_t i = 0;
               for ( ; i < embd.size(); i++) {
@@ -1109,16 +1083,11 @@ int LlamaCppNode::Chat() {
 
               LOG_DBG("eval: %s\n", string_from(ctx, embd).c_str());
               auto batch = llama_batch_get_one(&embd[i], n_eval);
-              // auto start = std::chrono::steady_clock::now();
               if (llama_decode(ctx, batch)) {
                   LOG_ERR("%s : failed to eval\n", __func__);
                   return 1;
               }
               n_past += n_eval;
-              // auto end = std::chrono::steady_clock::now();
-              // auto cost_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-              // std::cout << "耗时: " << cost_ms << std::endl;
-
 
               LOG_DBG("n_past = %d\n", n_past);
               // Display total tokens alongside total time
@@ -1310,7 +1279,6 @@ int LlamaCppNode::Chat() {
                       std_msgs::msg::String::UniquePtr pub_string(
                           new std_msgs::msg::String());  
                       pub_string->data = sub_string;
-                      // std::cout<<"sub_string: "<<sub_string<<std::endl;
                       output_msg_publisher_->publish(std::move(pub_string));
                       sub_string = "";
                     }
@@ -1438,9 +1406,6 @@ int LlamaCppNode::Chat() {
           break;
       }
 
-      // In interactive mode, respect the maximum number of tokens and drop back to user input when reached.
-      // We skip this logic when n_predict == -1 (infinite) or -2 (stop at context size).
-      // std::cout<<"n_remain: "<<n_remain<<std::endl;
       if (params.interactive && n_remain <= 0 && params.n_predict >= 0) {
           n_remain = params.n_predict;
           is_interacting = true;

@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>my_hobot_llamacpp</name>
-  <version>0.2.3</version>
-  <description>TogetheROS hobot llamacpp</description>
-  <maintainer email="zixi01.chen@d-robotics.cc">zixi01.chen</maintainer>
+  <name>qwen_llm</name>
+  <version>1.0.0</version>
+  <description>qwen llamacpp</description>
+  <maintainer email="847005649@qq.com">nuo.wu</maintainer>
   <license>Apache License 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
