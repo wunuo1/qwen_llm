@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
   params.model = llm_model_name_;
   params.cpuparams.n_threads = 8;
   params.sampling.temp = 0.5;
-  params.n_predict = 256;
+  params.n_predict = 128;
   std::string value = "/userdata/MagicBox/config/system_prompt.txt";
   std::ifstream file(value);
   if (!file) {
@@ -100,10 +100,11 @@ int main(int argc, char** argv) {
   if (!llama_model_has_encoder(model)) {
       GGML_ASSERT(!llama_vocab_get_add_eos(vocab));
   }
-
   std::vector<std::string> warmup_texts = {
       "你好，这是第一段预热文本。",
       "模型预热第二段，用于激活所有 kernel。",
+      "你叫什么名字。",
+      "介绍一下地瓜机器人。",
       "最后一段，确保 KV cache 已经填满。"
   };
   auto now = std::chrono::steady_clock::now();
@@ -123,6 +124,40 @@ int main(int argc, char** argv) {
 
   now = std::chrono::steady_clock::now();
   elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+
+  LOG_WRN("%s: warming up the model with an empty run - please wait ... (--no-warmup to disable)\n", __func__);
+
+  std::vector<llama_token> tmp;
+  llama_token bos = llama_vocab_bos(vocab);
+  llama_token eos = llama_vocab_eos(vocab);
+
+  // some models (e.g. T5) don't have a BOS token
+  if (bos != LLAMA_TOKEN_NULL) {
+      tmp.push_back(bos);
+  }
+  if (eos != LLAMA_TOKEN_NULL) {
+      tmp.push_back(eos);
+  }
+  if (tmp.empty()) {
+      tmp.push_back(0);
+  }
+
+  if (llama_model_has_encoder(model)) {
+      llama_encode(ctx, llama_batch_get_one(tmp.data(), tmp.size()));
+      llama_token decoder_start_token_id = llama_model_decoder_start_token(model);
+      if (decoder_start_token_id == LLAMA_TOKEN_NULL) {
+          decoder_start_token_id = bos;
+      }
+      tmp.clear();
+      tmp.push_back(decoder_start_token_id);
+  }
+  if (llama_model_has_decoder(model)) {
+      llama_decode(ctx, llama_batch_get_one(tmp.data(), std::min(tmp.size(), (size_t) params.n_batch)));
+  }
+  llama_kv_cache_clear(ctx);
+  llama_synchronize(ctx);
+  llama_perf_context_reset(ctx);
+
 
   std::cout << "所有预热文本处理完成。" << std::endl;
   return 0;

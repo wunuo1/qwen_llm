@@ -713,7 +713,7 @@ int LlamaCppNode::Chat() {
   params.model = llm_model_name_;
   params.cpuparams.n_threads = llm_threads_;
   params.sampling.temp = 0.5;
-  params.n_predict = 256;
+  params.n_predict = 128;
   std::string value = system_prompt_file_;
   std::ifstream file(value);
   if (!file) {
@@ -1010,6 +1010,37 @@ int LlamaCppNode::Chat() {
   bool fc_cmd_flag = false;
 
 
+  
+  std::vector<llama_token> tmp;
+  llama_token bos = llama_vocab_bos(vocab);
+  llama_token eos = llama_vocab_eos(vocab);
+
+  // some models (e.g. T5) don't have a BOS token
+  if (bos != LLAMA_TOKEN_NULL) {
+      tmp.push_back(bos);
+  }
+  if (eos != LLAMA_TOKEN_NULL) {
+      tmp.push_back(eos);
+  }
+  if (tmp.empty()) {
+      tmp.push_back(0);
+  }
+
+  if (llama_model_has_encoder(model)) {
+      llama_encode(ctx, llama_batch_get_one(tmp.data(), tmp.size()));
+      llama_token decoder_start_token_id = llama_model_decoder_start_token(model);
+      if (decoder_start_token_id == LLAMA_TOKEN_NULL) {
+          decoder_start_token_id = bos;
+      }
+      tmp.clear();
+      tmp.push_back(decoder_start_token_id);
+  }
+  if (llama_model_has_decoder(model)) {
+      llama_decode(ctx, llama_batch_get_one(tmp.data(), std::min(tmp.size(), (size_t) params.n_batch)));
+  }
+  llama_kv_cache_clear(ctx);
+  llama_synchronize(ctx);
+  llama_perf_context_reset(ctx);
 
 
   while (rclcpp::ok() && running_ && ((n_remain != 0 && !is_antiprompt) || params.interactive)) {
