@@ -27,6 +27,7 @@
 
 #include "include/image_utils.h"
 #include "include/llamacpp_node.h"
+#include "ament_index_cpp/get_package_prefix.hpp"
 
 // 时间格式转换
 builtin_interfaces::msg::Time ConvertToRosTime(
@@ -78,11 +79,10 @@ LlamaCppNode::LlamaCppNode(const std::string &node_name,
   this->declare_parameter<std::string>("image", image_file_);
   this->declare_parameter<int>("is_shared_mem_sub", is_shared_mem_sub_);
   this->declare_parameter<int>("llm_threads", llm_threads_);
-  this->declare_parameter<std::string>("llm_model_name", llm_model_name_);
+  this->declare_parameter<std::string>("llm_model_path", llm_model_path_);
   this->declare_parameter<std::string>("model_file_name", model_file_name_);
   this->declare_parameter<std::string>("cute_words", cute_words_);
   this->declare_parameter<std::string>("user_prompt", user_prompt_);
-  this->declare_parameter<std::string>("system_prompt_file_", system_prompt_file_);
   this->declare_parameter<int>("pre_infer", pre_infer_);
   this->declare_parameter<std::string>("ai_msg_pub_topic_name",
                                        ai_msg_pub_topic_name_);
@@ -94,24 +94,37 @@ LlamaCppNode::LlamaCppNode(const std::string &node_name,
                                        ros_string_sub_topic_name_);
   this->declare_parameter<bool>("enable_function_call",
                                        enable_function_call_);
+  this->declare_parameter<std::string>("system_prompt_file_", system_prompt_file_);
   this->declare_parameter<std::string>("system_prompt_function_call_file", system_prompt_function_call_file_);
+  this->declare_parameter<bool>("wait_for_audio", wait_for_audio_);
 
   this->get_parameter<int>("feed_type", feed_type_);
   this->get_parameter<std::string>("image", image_file_);
   this->get_parameter<int>("is_shared_mem_sub", is_shared_mem_sub_);
   this->get_parameter<int>("llm_threads", llm_threads_);
-  this->get_parameter<std::string>("llm_model_name", llm_model_name_);
+  this->get_parameter<std::string>("llm_model_path", llm_model_path_);
   this->get_parameter<std::string>("model_file_name", model_file_name_);
   this->get_parameter<std::string>("cute_words", cute_words_);
   this->get_parameter<std::string>("user_prompt", user_prompt_);
-  this->get_parameter<std::string>("system_prompt_file_", system_prompt_file_);
   this->get_parameter<int>("pre_infer", pre_infer_);
   this->get_parameter<std::string>("ai_msg_pub_topic_name", ai_msg_pub_topic_name_);
   this->get_parameter<std::string>("text_msg_pub_topic_name", text_msg_pub_topic_name_);
   this->get_parameter<std::string>("ros_img_sub_topic_name", ros_img_sub_topic_name_);
   this->get_parameter<std::string>("ros_string_sub_topic_name", ros_string_sub_topic_name_);
   this->get_parameter<bool>("enable_function_call", enable_function_call_);
+  this->get_parameter<std::string>("system_prompt_file_", system_prompt_file_);
   this->get_parameter<std::string>("system_prompt_function_call_file", system_prompt_function_call_file_);
+  this->get_parameter<bool>("wait_for_audio", wait_for_audio_);
+
+  std::string pkg_path = ament_index_cpp::get_package_prefix(pkg_name_);
+  std::string config_path = pkg_path + "/share/" + pkg_name_ + "/config/";
+
+  if (system_prompt_file_.empty()) {
+    system_prompt_file_ = config_path + "system_prompt.txt";
+  }
+  if (system_prompt_function_call_file_.empty()) {
+    system_prompt_function_call_file_ = config_path + "system_prompt_function_call.txt";
+  }
 
   {
     std::stringstream ss;
@@ -120,7 +133,7 @@ LlamaCppNode::LlamaCppNode(const std::string &node_name,
        << "\n image: " << image_file_
        << "\n is_shared_mem_sub: " << is_shared_mem_sub_
        << "\n llm_threads: " << llm_threads_
-       << "\n llm_model_name: " << llm_model_name_
+       << "\n llm_model_path: " << llm_model_path_
        << "\n model_file_name: " << model_file_name_
        << "\n cute_words: " << cute_words_
        << "\n user_prompt: " << user_prompt_
@@ -152,7 +165,7 @@ LlamaCppNode::LlamaCppNode(const std::string &node_name,
       }
     }
 
-    parser_ = std::make_shared<LlamaCppParser>(llm_model_name_, system_prompt_file_, llm_threads_);
+    parser_ = std::make_shared<LlamaCppParser>(llm_model_path_, system_prompt_file_, llm_threads_);
   }
   
   // 创建AI消息的发布者
@@ -710,7 +723,7 @@ int LlamaCppNode::Chat() {
   if (!common_params_parse(argc, argv, params, LLAMA_EXAMPLE_MAIN, print_usage)) {
       return 1;
   }
-  params.model = llm_model_name_;
+  params.model = llm_model_path_;
   params.cpuparams.n_threads = llm_threads_;
   params.sampling.temp = 0.5;
   params.n_predict = 128;
@@ -1331,9 +1344,11 @@ int LlamaCppNode::Chat() {
               }
               if (init_status == false) {
                 //等待确认语音节点是否启动
-                if (!status_service_->wait_for_service(std::chrono::seconds(100))) {
-                    RCLCPP_ERROR(this->get_logger(), "Service not available");
-                    return 1;
+                if(wait_for_audio_ == true){
+                  if (!status_service_->wait_for_service(std::chrono::seconds(100))) {
+                      RCLCPP_ERROR(this->get_logger(), "Service not available");
+                      return 1;
+                  }
                 }
                 
                 std_msgs::msg::String::UniquePtr pub_string(

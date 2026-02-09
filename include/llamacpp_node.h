@@ -114,10 +114,11 @@ class LlamaCppNode : public DnnNode {
 
   std::shared_ptr<LlamaCppParser> parser_ = nullptr;
 
+  std::string pkg_name_ = "qwen_llm";
   // 用于解析的配置文件，以及解析后的数据
   std::string model_file_name_ = "vit_model_int16_v2.bin";
   std::string model_name_ = "";
-  std::string llm_model_name_ = "Qwen2.5-1.5B-Instruct-Q4_0.gguf";
+  std::string llm_model_path_ = "/dev/shm/qwen2.5-1.5b-instruct-q5_k_m.gguf";
 
   // 加载模型后，查询出模型输入分辨率
   int model_input_width_ = 448;
@@ -147,6 +148,7 @@ class LlamaCppNode : public DnnNode {
   
   bool task_permission_ = true;
   bool enable_function_call_ = false;
+  bool wait_for_audio_ = true;
   std::mutex mtx_llm_;
   
   std::thread thread_;

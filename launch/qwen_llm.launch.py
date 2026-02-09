@@ -22,35 +22,35 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python import get_package_share_directory
 from launch.substitutions import TextSubstitution, LaunchConfiguration
 from launch.conditions import IfCondition
+from launch_ros.substitutions import FindPackageShare
+from launch.substitutions import PathJoinSubstitution
 
 def generate_launch_description():
 
     enable_function_call_arg = DeclareLaunchArgument(
         "enable_function_call", default_value="False"
     )
-
-    audio_node = Node(
-        package='audio_io',
-        executable='audio_io',
-        output='screen',
-        parameters=[
-            {"tts_config_path": "/userdata/MagicBox/dep/matcha-icefall-zh-baker",
-            "asr_model_path": "/userdata/MagicBox/config/"},
-        ],
-        arguments=['--ros-args', '--log-level', 'warn']
+    wait_for_audio_call_arg = DeclareLaunchArgument(
+        "wait_for_audio", default_value="True"
     )
+    pkg_path = FindPackageShare("qwen_llm")
 
+    config_file = PathJoinSubstitution([
+        pkg_path,
+        "config"
+    ])
+    print(config_file)
     qwen_llm_node = Node(
         package='qwen_llm',
         executable='qwen_llm',
         output='screen',
         parameters=[
-            {"feed_type": 2},
-            {"llm_model_name": "/dev/shm/qwen2.5-1.5b-instruct-q5_k_m.gguf"},
-            {"system_prompt_file_": "config/system_prompt.txt"},
+            {"llm_model_path": "/dev/shm/qwen2.5-1.5b-instruct-q5_k_m.gguf"},
             {"cute_words": "你好，请问有什么能够帮助您的？"},
-            {"system_prompt_function_call_file": "config/system_prompt_function_call.txt"},
+            {"system_prompt_file_": PathJoinSubstitution([config_file, "system_prompt.txt"])},
+            {"system_prompt_function_call_file": PathJoinSubstitution([config_file, "system_prompt_function_call.txt"])},
             {"enable_function_call": LaunchConfiguration('enable_function_call')},
+            {"wait_for_audio": LaunchConfiguration('wait_for_audio')},
         ],
         arguments=['--ros-args', '--log-level', 'warn']
     )
@@ -68,7 +68,7 @@ def generate_launch_description():
             'RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp'
         ),
         enable_function_call_arg,
-        # audio_node,
+        wait_for_audio_call_arg,
         fc_call_node,
         qwen_llm_node
     ])

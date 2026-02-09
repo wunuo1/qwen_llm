@@ -1,120 +1,122 @@
-English| [简体中文](./README_cn.md)
+[English](./README.md) | 简体中文
 
-Getting Started with qwen_llm Project
+Getting Started with qwen_llm
 =======
 
-# Feature Introduction
 
-The qwen_llm package is a large language model functional package that adapts MagicBox dialogue functionality based on [llama.cpp](https://github.com/ggml-org/llama.cpp).
+# 功能介绍
 
-- Pure Language Model (LLM): Supports setting system prompts, accepting prompt text input, and generating text-based dialogue output. The text input can be configured via parameters or dynamically controlled at runtime through string msg topic messages. The generated text output is published via string msg topic messages.
+qwen_llm package是基于 [hobot_llamacpp](https://github.com/D-Robotics/hobot_llamacpp) 适配MagicBox对话功能的大语言模型功能包，语言大模型为[qwen2.5](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF)
 
-- If you want to use the VLM function, please refer to the hobot_llamacpp project. Currently, this project is only compatible with LLM, and VLM will be compatible in subsequent versions
+- 若想使用VLM功能，请参考hobot_llamacpp项目，该项目目前仅适配LLM，VLM将再后续版本适配
 
-# Development Environment
+- 纯语言模型 LLM：支持系统提示词设定, 文本输入, 文本输出对话。其中文本可通过参数配置, 或运行中通过string msg 话题消息实时控制。最终输出文本, 通过 string msg 话题消息发出。
 
-- Programming Language: C/C++
-- Development Platform: X5
-- System Version: Ubuntu 22.04
-- Compilation Toolchain: Linaro GCC 11.4.0
+# 开发环境
 
-# Compilation
+- 编程语言: C/C++
+- 开发平台: X5
+- 系统版本：Ubuntu 22.04
+- 编译工具链: Linux GCC 11.4.0
 
-- X5 Version: Supports compilation on the X5 Ubuntu system and cross-compilation using Docker on a PC.
+# 编译
 
-It also supports controlling the dependencies and functionality of the compiled pkg through compilation options.
+- X5版本：支持在X5 Ubuntu系统上编译。
 
-## Dependency Libraries
+同时支持通过编译选项控制编译pkg的依赖和pkg的功能。
 
-- OpenCV: 3.4.5
+## 依赖库
 
-ROS Packages:
+- opencv:3.4.5
 
-- dnn_node
+ros package：
+
+- dnn node
 - cv_bridge
 - sensor_msgs
-- hbm_img_msgs
 - ai_msgs
+- hbm_img_msgs
 - std_srvs
 
-hbm_img_msgs is a custom image message format used for image transmission in shared memory scenarios. The hbm_img_msgs pkg is defined in hobot_msgs; therefore, if shared memory is used for image transmission, this pkg is required.
+hbm_img_msgs为自定义的图片消息格式, 用于shared mem场景下的图片传输, hbm_img_msgs pkg定义在hobot_msgs中, 因此如果使用shared mem进行图片传输, 需要依赖此pkg。
 
-## Compilation On Board
+## 板端 Ubuntu系统上编译
 
-1. Compilation Environment Verification
+1、编译环境确认
 
-- The dnn node package has been compiled.
-- The hbm_img_msgs package has been compiled (see Dependency section for compilation methods).
+- 板端已安装X5 Ubuntu系统。
+- 当前编译终端已设置TogetherROS环境变量：`source PATH/setup.bash`。其中PATH为TogetherROS的安装路径。
+- 已安装ROS2编译工具colcon。安装的ROS不包含编译工具colcon, 需要手动安装colcon。colcon安装命令：`pip install -U colcon-common-extensions`
 
-2. Compilation
+2、编译依赖
 
-- Link third Party [llama.cpp](https://github.com/ggml-org/llama.cpp):
+- 链接第三方仓库 [llama.cpp](https://github.com/ggml-org/llama.cpp):
  
-  ```shell
-  git clone https://github.com/ggml-org/llama.cpp -b b4749
-  cmake -B build
-  cmake --build build --config Release
-  # link llama.cpp to project
-  cd hobot_llamacpp && ln -s thirdparty/llama.cpp llama.cpp
-  ```
-
-- Compilation command:
-
-  ```shell
-  # RDK X5
-  colcon build --merge-install --cmake-args -DPLATFORM_X5=ON --packages-select hobot_llamacpp
-  ```
-# Notes
-
-## Dependencies
-
-- mipi_cam package: Publishes image messages
-- usb_cam package: Publishes image messages
-- websocket package: Display image messages
-
-## Parameters
-
-| Parameter Name      | Explanation                    | Mandatory        | Default Value  |
-| ------------------- | ------------------------------ | ---------------- | -------------- |
-| feed_type           | Data source, 0: vlm local; 1: vlm subscribe; 2: llm subscribe  | No                   | 2                   |
-| image               | Local image path                       | No                   | config/image2.jpg     | 
-| is_shared_mem_sub   | Subscribe to images using shared memory communication method | No  | 0                   |                                                                         
-| llm_threads | LLM Run num of threads | No | 8 |
-| model_file_name | vision model file name | No | vit_model_int16_v2.bin |
-| llm_model_name | language model file name | No | qwen2.5-1.5b-instruct-q5_k_m.gguf |
-| pre_infer | pre infer button | No | 0 |
-| text_msg_pub_topic_name | Topic name for publishing intelligent results for tts | No                   | /tts_text |
-| ros_img_sub_topic_name | Topic name for subscribing image msg | No                   | /image |
-| ros_string_sub_topic_name | Topic name for subscribing string msg to set user prompt| No                   | /prompt_text |
-|enable_function_call       | Whether to use the function_call feature  | No | false              |
-## Instructions
-
-- Prompts Publishing: hobot_llamacpp relies on user prompt from ros2 string msg messages. There is an example of how to use the string msg topic, where /prompt_text is the topic name. The data field contains a string that sets the prompt for the language model.
-
-# Running
-
-- The models required for the project need to be downloaded from the following source.
-
-  - [Language Encoder and Decoder](https://huggingface.co/D-Robotics/InternVL2_5-1B-GGUF-BPU/blob/main/qwen2.5-1.5b-instruct-q5_k_m.gguf)
-
-## Running on X5 Ubuntu System
-
-Running method 1, use the executable file to start:
 ```shell
-source ./install/setup.bash
-export COLCON_CURRENT_PREFIX=./install
-cp -r install/lib/hobot_llamacpp/config/ .
-
-# Using a language model for reasoning interaction, this function is used together with the speech processing function, which will block and wait for the speech processing node to start. For details, please refer to audio_interaction.launch.py
-ros2 launch qwen_llm audio_interaction.launch.py
+git clone https://github.com/ggml-org/llama.cpp -b b4749
+cmake -B build
+cmake --build build --config Release
+# 链接llama.cpp到工程目录下
+cd qwen_llm && ln -s thirdparty/llama.cpp llama.cpp
 ```
 
-# Results Analysis
+3、编译
 
-## X5 results analysis
-This function, when used in conjunction with the voice processing function, will block and wait for the voice processing node to start
+- 编译命令：
 
-Run：`ros2 launch qwen_llm audio_interaction.launch.py`
+```shell
+# RDK X5
+colcon build --cmake-args -DPLATFORM_X5=ON --packages-select qwen_llm
+```
+
+
+# 使用介绍
+
+
+## 参数
+
+| 参数名                    | 解释                                  | 是否必须             | 默认值              |
+| ------------------ | ------------------------------------- | -------------------- | ------------------- |
+| llm_model_path            | 语言模型路径                                        | 否 | "/dev/shm/qwen2.5-1.5b-instruct-q5_k_m.gguf"|
+| text_msg_pub_topic_name   | 发布智能结果的topicname,中间结果                     | 否 | /tts_text                          |
+| ros_string_sub_topic_name | 接收string消息话题获得文本提示词                     | 否 | /prompt_text                       |
+| enable_function_call      | 是否使用function_call功能                           | 否 | false                              |
+| wait_for_audio            | 是否阻塞等待语音节点                                 | 否 | true                               |
+
+
+## 使用说明
+
+- 发布提示词：qwen_llm 依赖string msg话题消息获取提示词。string msg话题使用示例如下。其中 /prompt_text 为话题名。data字段中的数据为string字符串, 设置语言模型提示词
+- 该功能包支持实现类似function_call的功能，但由于涉及大量prompt的输入，模型初始化时间较长，所以默认不开启，若想体验，请设置enable_function_call，可参考qwen_llm.launch.py，同步启动舵机控制节点
+- 该功能包默认与audio_io一起使用，所以会阻塞等待audio_io节点开启，若独立使用可将wait_for_audio设置为False
+- llama_warmup主要用于实现模型预热，启动正式功能前运行，能够保证推理速度稳定
+- 模型默认路径为“/dev/shm/qwen2.5-1.5b-instruct-q5_k_m.gguf”，需要将模型先放入内存中，主要为避免初始化时间过久，可自行修改
+
+## 运行
+
+- qwen_llm 模型链接。
+
+  - [语言编解码模型](https://huggingface.co/D-Robotics/InternVL2_5-1B-GGUF-BPU/blob/main/qwen2.5-1.5b-instruct-q5_k_m.gguf)
+
+## X5 Ubuntu系统上运行
+
+运行方式1, 使用可执行文件启动：
+```shell
+export COLCON_CURRENT_PREFIX=./install
+source ./install/local_setup.bash
+
+# 使用大语言模型进行推理交互，该功能与语音处理（audio_io）功能一起使用，将阻塞等待语音处理节点启动
+ros2 launch qwen_llm qwen_llm.launch.py
+```
+
+# 结果分析
+
+## X5结果展示
+
+### 语言模型
+该功能与语音处理功能一起使用，将阻塞等待语音处理节点启动
+
+运行命令：`ros2 launch qwen_llm qwen_llm.launch.py`
 
 ```bash
 [INFO] [launch]: All log files can be found below /root/.ros/log/2026-01-21-15-55-24-554976-ubuntu-33128
