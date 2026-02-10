@@ -94,13 +94,9 @@ colcon build --cmake-args -DPLATFORM_X5=ON --packages-select qwen_llm
 
 ## 运行
 
-- qwen_llm 模型链接。
-
-  - [语言编解码模型](https://huggingface.co/D-Robotics/InternVL2_5-1B-GGUF-BPU/blob/main/qwen2.5-1.5b-instruct-q5_k_m.gguf)
 
 ## X5 Ubuntu系统上运行
 
-运行方式1, 使用可执行文件启动：
 ```shell
 export COLCON_CURRENT_PREFIX=./install
 source ./install/local_setup.bash
