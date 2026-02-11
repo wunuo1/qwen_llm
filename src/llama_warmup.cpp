@@ -60,7 +60,8 @@ int main(int argc, char** argv) {
   params.cpuparams.n_threads = 8;
   params.sampling.temp = 0.5;
   params.n_predict = 128;
-  std::string value = "/userdata/MagicBox/config/system_prompt.txt";
+
+  std::string value = "/userdata/MagicBox/app/ros_ws/install/qwen_llm/share/qwen_llm/config/system_prompt.txt";
   std::ifstream file(value);
   if (!file) {
       throw std::runtime_error(string_format("error: failed to open file '%s'\n", value.c_str()));
